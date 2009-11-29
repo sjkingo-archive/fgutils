@@ -37,7 +37,7 @@ class FGData(object):
     def setup_gnuplot(self):
         self.gnuplot = subprocess.Popen(['gnuplot'], stdin=subprocess.PIPE, 
                 stdout=self.null, stderr=self.null)
-        self.write('splot "%s"' % self.filename)
+        self.write('splot "%s" with lines' % self.filename)
         print('Started gnuplot')
 
     def save(self):
