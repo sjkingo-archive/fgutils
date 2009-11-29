@@ -9,7 +9,7 @@ from twisted.internet import protocol, reactor
 
 class FGData(object):
     _keys = ['aileron', 'elevator', 'rudder', # flight controls
-            'latitude-deg', 'longitude-deg', 'altitude-ft', # position
+            'latitude-deg', 'longitude-deg', 'altitude-ft', 'ground-elev-ft', # position
             'roll-deg', 'pitch-deg', 'heading-deg', # orientation
             'airspeed-kt', # velocity
     ]
@@ -37,7 +37,9 @@ class FGData(object):
     def setup_gnuplot(self):
         self.gnuplot = subprocess.Popen(['gnuplot'], stdin=subprocess.PIPE, 
                 stdout=self.null, stderr=self.null)
-        self.write('splot "%s" with lines' % self.filename)
+        self.write('splot "%s" using 1:2:3 title "Flight path" with lines,'
+                '"%s" using 1:2:4 title "Ground elevation" with lines' 
+                % (self.filename, self.filename))
         print('Started gnuplot')
 
     def save(self):
@@ -65,7 +67,7 @@ class FGData(object):
 
         l = line.rstrip('\n').split(',')
         for n, k in enumerate(self._keys):
-            if k == 'altitude-ft':
+            if k == 'altitude-ft' or k == 'ground-elev-ft':
                 d[k] = '%.1f' % float(l[n]) # truncate altitude to 1 decimal
             else:
                 d[k] = l[n]
@@ -122,7 +124,7 @@ class FGProperty(protocol.Protocol):
 
     def dataReceived(self, data):
         self.parser.parse_data(data)
-        self.parser.dump(['latitude-deg', 'longitude-deg', 'altitude-ft'])
+        self.parser.dump(['latitude-deg', 'longitude-deg', 'altitude-ft', 'ground-elev-ft'])
 
 
 if __name__ == '__main__':
