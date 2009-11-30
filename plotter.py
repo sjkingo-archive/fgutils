@@ -49,7 +49,7 @@ class Plotter(object):
         self.gnuplot = subprocess.Popen(['gnuplot'], stdin=subprocess.PIPE, 
                 stdout=self.null, stderr=self.null)
         self.write(splot)
-        print('Started gnuplot')
+        print('Started gnuplot and recording data points...')
 
     def save(self):
         self.write('set term postscript eps enhanced')
@@ -110,9 +110,11 @@ class Plotter(object):
 class FGProtocol(protocol.Protocol):
 
     def connectionMade(self):
-        print('Connection from client')
+        peer = self.transport.getPeer()
+        print('Connection from %s:%d' % (peer.host, peer.port))
         self.plotter = Plotter(self.factory.points_filename, 
                 self.factory.save_filename)
+        print('Waiting for inputs to stabilise...')
 
     def connectionLost(self, reason):
         print('Lost connection with client:', reason.getErrorMessage())
@@ -166,6 +168,10 @@ def setup(listen_port, ordered_keys, plot, points_filename='pos.txt',
     f = protocol.Factory()
     reactor.listenTCP(listen_port, FGFactory(ordered_keys, plot,
             points_filename, save_filename))
+    print('Listening on TCP port %d. Start FlightGear now with '
+            '--generic argument:' % listen_port)
+    print('`fgfs --generic=socket,out,20,localhost,%d,tcp,position`' 
+            % listen_port)
     reactor.run()
 
 
