@@ -31,15 +31,19 @@ class Plotter(object):
         fp.close()
 
     def __del__(self):
-        self.write('quit')
-        self.gnuplot.kill()
-        print('Killed gnuplot')
-
+        if self.gnuplot is not None:
+            self.write('quit')
+            self.gnuplot.kill()
+            print('Killed gnuplot')
+            print('Recorded %d points in %d seconds' % (self.recorded_points, 
+                    self.n_points / float(self.points_per_sec)))
         self.null.close()
-        print('Recorded %d points in %d seconds' % (self.recorded_points, 
-                self.n_points / float(self.points_per_sec)))
 
     def setup_gnuplot(self, plot):
+        if plot is None:
+            # we're probably exiting
+            return
+
         splot = 'splot "%s"' % self.filename
         for n, (title, values) in enumerate(plot):
             splot += ' using %s title "%s" with lines' % (values, title)
@@ -52,11 +56,12 @@ class Plotter(object):
         print('Started gnuplot and recording data points...')
 
     def save(self):
-        self.write('set term postscript eps enhanced')
-        self.write('set output "%s"' % self.save_filename)
-        self.replot()
-        time.sleep(1) # give it 1 second to flush
-        print('Saved graph to %s' % self.save_filename)
+        if self.gnuplot is not None:
+            self.write('set term postscript eps enhanced')
+            self.write('set output "%s"' % self.save_filename)
+            self.replot()
+            time.sleep(1) # give it 1 second to flush
+            print('Saved graph to %s' % self.save_filename)
 
     def parse_data(self, fields, line):
         if line.count('\n') != 1:
@@ -103,7 +108,9 @@ class Plotter(object):
             self.replot(plot)
 
     def write(self, data):
-        if self.gnuplot is not None:
+        if self.gnuplot is None:
+            print('Tried to write() to gnuplot when it\'s not running!')
+        else:
             self.gnuplot.stdin.write('%s\n' % data)
             self.gnuplot.stdin.flush()
 
