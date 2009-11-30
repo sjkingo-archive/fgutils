@@ -3,7 +3,6 @@
 from __future__ import print_function
 import time
 import subprocess
-import sys
 
 from twisted.internet import protocol, reactor
 
@@ -31,6 +30,15 @@ class Plotter(object):
         fp.truncate()
         fp.close()
 
+    def __del__(self):
+        self.write('quit')
+        self.gnuplot.kill()
+        print('Killed gnuplot')
+
+        self.null.close()
+        print('Recorded %d points in %d seconds' % (self.recorded_points, 
+                self.n_points / float(self.points_per_sec)))
+
     def setup_gnuplot(self, plot):
         splot = 'splot "%s"' % self.filename
         for n, (title, values) in enumerate(plot):
@@ -49,15 +57,6 @@ class Plotter(object):
         self.replot()
         time.sleep(1) # give it 1 second to flush
         print('Saved graph to %s' % self.save_filename)
-
-    def __del__(self):
-        self.write('quit')
-        self.gnuplot.kill()
-        print('Killed gnuplot')
-
-        self.null.close()
-        print('Recorded %d points in %d seconds' % (self.recorded_points, 
-                self.n_points / float(self.points_per_sec)))
 
     def parse_data(self, fields, line):
         if line.count('\n') != 1:
@@ -111,7 +110,8 @@ class Plotter(object):
 class FGProtocol(protocol.Protocol):
 
     def __init__(self):
-        self.plotter = Plotter('pos.txt', 'out.eps')
+        self.plotter = Plotter(self.factory.points_filename, 
+                self.factory.save_filename)
         print('Ready for connections')
 
     def connectionMade(self):
@@ -129,15 +129,18 @@ class FGFactory(protocol.Factory):
 
     protocol = FGProtocol
 
-    def __init__(self, ordered_keys, plot):
+    def __init__(self, ordered_keys, plot, points_filename, save_filename):
         self.ordered_keys = ordered_keys
         self.plot = plot
+        self.points_filename = points_filename
+        self.save_filename = save_filename
 
-def setup(port, ordered_keys, plot):
-    """ordered_keys is a list of the keys that we should expect from
+def setup(port, ordered_keys, plot, points_filename, save_filename):
+    """`ordered_keys` is a list of the keys that we should expect from
     FlightGear. It should match the protocol.xml file's order and names.
 
-    plot is a list of tuples in the form (title, fields) to plot on the graph.
+    `plot` is a list of tuples in the form (title, fields) to plot on the
+    graph.
 
     For example, if ordered_keys is:
         ['latitude', 'longitude', 'altitude']
@@ -147,11 +150,20 @@ def setup(port, ordered_keys, plot):
     The second value in the tuple should be in a valid "using x" syntax that
     gnuplot can recognise. This would plot field 1 (latitude) as x, field 2
     (longitude) as y, and field 3 (altitude) as z.
+
+    `points_filename` is where the data points will be written to. The file
+    will be truncated before starting. It typically have an extension of
+    .txt or .dat.
+
+    `save_filename` is the filename to write the generated PostScript graph
+    to when quitting. It should have an extension of .eps.
     """
 
     f = protocol.Factory()
-    reactor.listenTCP(port, FGFactory(ordered_keys, plot))
+    reactor.listenTCP(port, FGFactory(ordered_keys, plot, points_filename, 
+            save_filename))
     reactor.run()
 
-setup(5555, ['latitude-deg', 'longitude-deg', 'altitude-ft', 'ground-elev-ft'], 
-        [('Flight path', '1:2:3'), ('Ground elevation', '1:2:4')])
+setup(5555, ['latitude-deg', 'longitude-deg', 'altitude-ft', 'ground-elev-ft'],
+        [('Flight path', '1:2:3'), ('Ground elevation', '1:2:4')], 
+        'pos.txt', 'out.eps')
