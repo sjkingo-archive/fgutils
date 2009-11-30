@@ -61,17 +61,24 @@ class Plotter(object):
     def parse_data(self, fields, line):
         if line.count('\n') != 1:
             print('This line had more than one set of data in it, discarding')
-            return
-
-        d = {}
+            return False
 
         l = line.rstrip('\n').split(',')
+        if len(l) != len(fields):
+            print('Discarding corrupt line: should have had %d fields, '
+                    'instead had %d' % (len(fields), len(l)))
+            return False
+
+        d = {}
         for n, k in enumerate(fields):
             d[k] = l[n]
 
         if d != self.current_data:
             self.last_data = dict(self.current_data) # copy
             self.current_data = dict(d)
+            return True
+
+        return False
 
     def dump(self, fields, plot):
         self.n_points += 1
@@ -121,8 +128,8 @@ class FGProtocol(protocol.Protocol):
         self.plotter.save()
 
     def dataReceived(self, data):
-        self.plotter.parse_data(self.factory.ordered_keys, data)
-        self.plotter.dump(self.factory.ordered_keys, self.factory.plot)
+        if self.plotter.parse_data(self.factory.ordered_keys, data):
+            self.plotter.dump(self.factory.ordered_keys, self.factory.plot)
 
 class FGFactory(protocol.Factory):
 
