@@ -7,7 +7,7 @@ import sys
 
 from twisted.internet import protocol, reactor
 
-class FGData(object):
+class Plotter(object):
 
     def __init__(self, filename, save_filename):
         self.filename = filename
@@ -111,7 +111,7 @@ class FGData(object):
 class FGProtocol(protocol.Protocol):
 
     def __init__(self):
-        self.parser = FGData('pos.txt', 'out.eps')
+        self.plotter = Plotter('pos.txt', 'out.eps')
         print('Ready for connections')
 
     def connectionMade(self):
@@ -119,11 +119,11 @@ class FGProtocol(protocol.Protocol):
 
     def connectionLost(self, reason):
         print('Lost connection with client:', reason.getErrorMessage())
-        self.parser.save()
+        self.plotter.save()
 
     def dataReceived(self, data):
-        self.parser.parse_data(self.factory.ordered_keys, data)
-        self.parser.dump(self.factory.ordered_keys, self.factory.plot)
+        self.plotter.parse_data(self.factory.ordered_keys, data)
+        self.plotter.dump(self.factory.ordered_keys, self.factory.plot)
 
 class FGFactory(protocol.Factory):
 
