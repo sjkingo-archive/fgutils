@@ -132,9 +132,15 @@ class FGFactory(protocol.Factory):
         self.points_filename = points_filename
         self.save_filename = save_filename
 
-def setup(port, ordered_keys, plot, points_filename='pos.txt', 
+def setup(listen_port, ordered_keys, plot, points_filename='pos.txt',
         save_filename='out.eps'):
-    """`ordered_keys` is a list of the keys that we should expect from
+    """Set up the plotting server and wait for a connection from FlightGear.
+    When one arrives, gnuplot will be started ready to plot the given
+    data points.
+
+    `listen_port` is the TCP port to listen on for connections from FlightGear.
+
+    `ordered_keys` is a list of the keys that we should expect from
     FlightGear. It should match the protocol.xml file's order and names.
 
     `plot` is a list of tuples in the form (title, fields) to plot on the
@@ -158,9 +164,11 @@ def setup(port, ordered_keys, plot, points_filename='pos.txt',
     """
 
     f = protocol.Factory()
-    reactor.listenTCP(port, FGFactory(ordered_keys, plot, points_filename, 
-            save_filename))
+    reactor.listenTCP(listen_port, FGFactory(ordered_keys, plot,
+            points_filename, save_filename))
     reactor.run()
 
+
+# To plot position with ground elevation as a flight path
 setup(5555, ['latitude-deg', 'longitude-deg', 'altitude-ft', 'ground-elev-ft'],
         [('Flight path', '1:2:3'), ('Ground elevation', '1:2:4')])
