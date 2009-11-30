@@ -26,9 +26,8 @@ class Plotter(object):
         self.null = open('/dev/null', 'w')
 
         # Truncate the data file
-        fp = open(self.filename, 'w')
-        fp.truncate()
-        fp.close()
+        with open(self.filename, 'w') as fp:
+            fp.truncate()
 
     def __del__(self):
         if self.gnuplot is not None:
@@ -102,9 +101,8 @@ class Plotter(object):
         if d != self.last_dump and self.stable:
             self.recorded_points += 1
             self.last_dump = d
-            fp = open(self.filename, 'a')
-            fp.write(d)
-            fp.close()
+            with open(self.filename, 'a') as fp:
+                fp.write(d)
             self.replot(plot)
 
     def write(self, data):
