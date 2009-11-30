@@ -132,7 +132,8 @@ class FGFactory(protocol.Factory):
         self.points_filename = points_filename
         self.save_filename = save_filename
 
-def setup(port, ordered_keys, plot, points_filename, save_filename):
+def setup(port, ordered_keys, plot, points_filename='pos.txt', 
+        save_filename='out.eps'):
     """`ordered_keys` is a list of the keys that we should expect from
     FlightGear. It should match the protocol.xml file's order and names.
 
@@ -162,5 +163,4 @@ def setup(port, ordered_keys, plot, points_filename, save_filename):
     reactor.run()
 
 setup(5555, ['latitude-deg', 'longitude-deg', 'altitude-ft', 'ground-elev-ft'],
-        [('Flight path', '1:2:3'), ('Ground elevation', '1:2:4')], 
-        'pos.txt', 'out.eps')
+        [('Flight path', '1:2:3'), ('Ground elevation', '1:2:4')])
