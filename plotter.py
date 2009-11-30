@@ -109,13 +109,10 @@ class Plotter(object):
 
 class FGProtocol(protocol.Protocol):
 
-    def __init__(self):
-        self.plotter = Plotter(self.factory.points_filename, 
-                self.factory.save_filename)
-        print('Ready for connections')
-
     def connectionMade(self):
         print('Connection from client')
+        self.plotter = Plotter(self.factory.points_filename, 
+                self.factory.save_filename)
 
     def connectionLost(self, reason):
         print('Lost connection with client:', reason.getErrorMessage())
