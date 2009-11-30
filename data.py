@@ -130,23 +130,25 @@ class FGFactory(protocol.Factory):
     protocol = FGProtocol
 
     def __init__(self, ordered_keys, plot):
-        """ordered_keys is a list of the keys that we should expect from 
-        FlightGear. It should match the protocol.xml file's order and names.
-
-        plot is a list of tuples in the form (title, fields) to plot on the 
-        graph. For example, if ordered_keys is:
-            ['latitude', 'longitude', 'altitude']
-        then (indexing from 1) the plot could look like:
-            [('Flight path', '1:2:3')]
-        The second value in the tuple should be in a valid "using x" syntax 
-        that gnuplot can recognise. This would plot field 1 (latitude) as x,
-        field 2 (longitude) as y, and field 3 (altitude) as z.
-        """
-
         self.ordered_keys = ordered_keys
         self.plot = plot
 
 def setup(port, ordered_keys, plot):
+    """ordered_keys is a list of the keys that we should expect from
+    FlightGear. It should match the protocol.xml file's order and names.
+
+    plot is a list of tuples in the form (title, fields) to plot on the graph.
+
+    For example, if ordered_keys is:
+        ['latitude', 'longitude', 'altitude']
+    then (indexing from 1) the plot could look like:
+        [('Flight path', '1:2:3')]
+
+    The second value in the tuple should be in a valid "using x" syntax that
+    gnuplot can recognise. This would plot field 1 (latitude) as x, field 2
+    (longitude) as y, and field 3 (altitude) as z.
+    """
+
     f = protocol.Factory()
     reactor.listenTCP(port, FGFactory(ordered_keys, plot))
     reactor.run()
