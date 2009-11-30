@@ -8,11 +8,6 @@ import sys
 from twisted.internet import protocol, reactor
 
 class FGData(object):
-    _keys = ['aileron', 'elevator', 'rudder', # flight controls
-            'latitude-deg', 'longitude-deg', 'altitude-ft', 'ground-elev-ft', # position
-            'roll-deg', 'pitch-deg', 'heading-deg', # orientation
-            'airspeed-kt', # velocity
-    ]
 
     def __init__(self, filename, save_filename):
         self.filename = filename
@@ -28,18 +23,24 @@ class FGData(object):
         self.recorded_points = 0
 
         self.gnuplot = None
+        self.plot = None
         self.null = open('/dev/null', 'w')
 
+        # Truncate the data file
         fp = open(self.filename, 'w')
         fp.truncate()
         fp.close()
 
-    def setup_gnuplot(self):
+    def setup_gnuplot(self, plot):
+        splot = 'splot "%s"' % self.filename
+        for n, (title, values) in enumerate(plot):
+            splot += ' using %s title "%s" with lines' % (values, title)
+            if n + 1 != len(plot):
+                splot += ', "%s"' % self.filename
+
         self.gnuplot = subprocess.Popen(['gnuplot'], stdin=subprocess.PIPE, 
                 stdout=self.null, stderr=self.null)
-        self.write('splot "%s" using 1:2:3 title "Flight path" with lines,'
-                '"%s" using 1:2:4 title "Ground elevation" with lines' 
-                % (self.filename, self.filename))
+        self.write(splot)
         print('Started gnuplot')
 
     def save(self):
@@ -58,7 +59,7 @@ class FGData(object):
         print('Recorded %d points in %d seconds' % (self.recorded_points, 
                 self.n_points / float(self.points_per_sec)))
 
-    def parse_data(self, line):
+    def parse_data(self, fields, line):
         if line.count('\n') != 1:
             print('This line had more than one set of data in it, discarding')
             return
@@ -66,18 +67,14 @@ class FGData(object):
         d = {}
 
         l = line.rstrip('\n').split(',')
-        for n, k in enumerate(self._keys):
-            if k == 'altitude-ft' or k == 'ground-elev-ft':
-                d[k] = '%.1f' % float(l[n]) # truncate altitude to 1 decimal
-            else:
-                d[k] = l[n]
+        for n, k in enumerate(fields):
+            d[k] = l[n]
 
         if d != self.current_data:
             self.last_data = dict(self.current_data) # copy
             self.current_data = dict(d)
-            #print(self.current_data)
 
-    def dump(self, fields):
+    def dump(self, fields, plot):
         self.n_points += 1
 
         d = ''
@@ -97,19 +94,21 @@ class FGData(object):
             fp = open(self.filename, 'a')
             fp.write(d)
             fp.close()
-            self.replot()
+            self.replot(plot)
 
     def write(self, data):
         if self.gnuplot is not None:
             self.gnuplot.stdin.write('%s\n' % data)
             self.gnuplot.stdin.flush()
 
-    def replot(self):
+    def replot(self, plot=None):
+        if plot is not None and self.plot is None:
+            self.plot = plot # XXX errrrg so hacky
         if self.gnuplot is None:
-            self.setup_gnuplot()
+            self.setup_gnuplot(plot)
         self.write('replot')
 
-class FGProperty(protocol.Protocol):
+class FGProtocol(protocol.Protocol):
 
     def __init__(self):
         self.parser = FGData('pos.txt', 'out.eps')
@@ -123,12 +122,34 @@ class FGProperty(protocol.Protocol):
         self.parser.save()
 
     def dataReceived(self, data):
-        self.parser.parse_data(data)
-        self.parser.dump(['latitude-deg', 'longitude-deg', 'altitude-ft', 'ground-elev-ft'])
+        self.parser.parse_data(self.factory.ordered_keys, data)
+        self.parser.dump(self.factory.ordered_keys, self.factory.plot)
 
+class FGFactory(protocol.Factory):
 
-if __name__ == '__main__':
+    protocol = FGProtocol
+
+    def __init__(self, ordered_keys, plot):
+        """ordered_keys is a list of the keys that we should expect from 
+        FlightGear. It should match the protocol.xml file's order and names.
+
+        plot is a list of tuples in the form (title, fields) to plot on the 
+        graph. For example, if ordered_keys is:
+            ['latitude', 'longitude', 'altitude']
+        then (indexing from 1) the plot could look like:
+            [('Flight path', '1:2:3')]
+        The second value in the tuple should be in a valid "using x" syntax 
+        that gnuplot can recognise. This would plot field 1 (latitude) as x,
+        field 2 (longitude) as y, and field 3 (altitude) as z.
+        """
+
+        self.ordered_keys = ordered_keys
+        self.plot = plot
+
+def setup(port, ordered_keys, plot):
     f = protocol.Factory()
-    f.protocol = FGProperty
-    reactor.listenTCP(int(sys.argv[1]), f)
+    reactor.listenTCP(port, FGFactory(ordered_keys, plot))
     reactor.run()
+
+setup(5555, ['latitude-deg', 'longitude-deg', 'altitude-ft', 'ground-elev-ft'], 
+        [('Flight path', '1:2:3'), ('Ground elevation', '1:2:4')])
